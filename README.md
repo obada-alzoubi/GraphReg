@@ -1,5 +1,14 @@
 # Attention - GraphReg - Expanded  
-This repo is an extention for GraphReg. It has detialed explnations and improvment over the orignal repo.I added deom exmaples and fixing several bugs and hard coded values. It is still an ongoing process. 
+This repo is an extention for GraphReg. It has detialed explnations and improvment over the orignal repo.I added demo exmaples and fixed several bugs and hard coded values. It is still an ongoing process. 
+### Top Configurations
+Before moving on with running. You need to pay attention to the following paramters. 
+* `bin size`: the bin size at wjich you will sample genemone. It is also depends on HiC resoltion. 
+* `Genome Build`: hg19, hg38 or mouse.
+* `model`: sequence or epigenomic.
+* `cell lines`: cell line(s) for extracting epi features. 
+Each script should be examined for each of the previous parameters. 
+### Compuational Time of data preporcessing 
+Some scripts are memory greedy. You may need a computer with 68 GB at minimum.
 
 <img
   src="assets/distal_enhancers.png"
