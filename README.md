@@ -1,14 +1,14 @@
-# Attention - GraphReg - Expanded  
+# GraphReg - Expanded  
 This repo is an extention for GraphReg. It has detialed explnations and improvment over the orignal repo.I added demo exmaples and fixed several bugs and hard coded values. It is still an ongoing process. 
 ### Top Configurations
 Before moving on with running. You need to pay attention to the following paramters. 
-* `bin size`: the bin size at wjich you will sample genemone. It is also depends on HiC resoltion. 
+* `bin size`: the bin size at which you will sample genemone. It also depends on HiC resoltion. This parameter will determine many parameters.  
 * `Genome Build`: hg19, hg38 or mouse.
 * `model`: sequence or epigenomic.
 * `cell lines`: cell line(s) for extracting epi features. 
-Each script should be examined for each of the previous parameters. 
+Each script should be examined for each of the previous parameters. There are many hard coded paramters in scripts!
 ### Compuational Time of data preporcessing 
-Some scripts are memory greedy. You may need a computer with 68 GB at minimum.
+Some scripts are memory greedy. You may need a computer with 72 GB at minimum.
 
 <img
   src="assets/distal_enhancers.png"
@@ -102,9 +102,9 @@ mkdir -p data/IMR90/hic/HiC/
 Then, use the following Rscript code to generate the significance level (FDR) . 
 ```
 library(HiCDCPlus)
-cell_line  = 'IMR90'           # GM12878/K562/hESC/mESC
+cell_line  = 'IMR90'           # GM12878/K562/hESC/mESC/IMR90
 organism   = 'human'           # human/mouse
-res        = '5kb'                  # 5kb/10kb
+res        = '5kb'              # 5kb/10kb
 binsize    = 5000
 genome     = 'hg38'                # hg19/hg38/mm10
 assay_type = 'HiC'        # HiC/HiChIP/MicroC/HiCAR
@@ -160,7 +160,7 @@ import scipy.sparse
 
 ##### write seqs #####
 '''
-T = 400
+T = 400 
 TT = T + T//2
 organism = 'human'
 genome='hg38'
@@ -228,11 +228,11 @@ mv  data/gencode.bed  data/tss/human/hg38/gencode.v38.annotation.gtf.tss.bed
 ```
 Then, we can run `find_tss.py` after editing the following line:
 ```
-resolution = '5kb'     # 5kb/10kb
-organism = 'human'     # human/mouse
-genome    = 'hg38'        # hg38/hg19/mm10
-thr = 0                # only keep the tss bins whose distance from bin borders are more than "thr" 
-                       # (only applicable when want to consider the bins with 1 tss, otherwise thr = 0)
+resolution = '5kb'   # 5kb/10kb
+organism   = 'human' # human/mouse
+genome     = 'hg38   # hg38/hg19/mm10
+thr        = 0       # only keep the tss bins whose distance from bin borders are more than "thr" 
+                     # (only applicable when want to consider the bins with 1 tss, otherwise thr = 0)
 data_path = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
 ```
 
