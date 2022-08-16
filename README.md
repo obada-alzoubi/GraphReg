@@ -139,10 +139,27 @@ for (chr in chrs){
                significance_threshold=qval,rows='significant')
 
 }
-# ouput
-
-
+```
 The outputs of HiCDCPlus is given to [hic_to_graph.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/hic_to_graph.py) to generate the adjacency matrices for each chromosome, which are saved as sparce matrices. 
+You need again to edit `hic_to_graph.y`
+```
+
+cell_line  = 'K562'           # GM12878/K562/hESC/mESC
+organism   = 'human'           # human/mouse
+res        = '5kb'                  # 5kb/10kb
+genome     = 'hg38'                # hg19/hg38/mm10
+assay_type = 'HiC'        # HiC/HiChIP/MicroC/HiCAR
+qval       = 0.01                    # 0.1/0.01/0.001 - please make sure the q-value here matches wiht Rscript
+data_path  = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
+```
+Also depending on the version of `HiCDCPlus`, you might need to fix this line:
+```
+hic_dataframe.columns = ["chr", "start_i","end_i","chrj", "start_j","end_j", "D",  "count","pvalue", "qval", "mu", "sdev"]
+```
+ Instead of 
+``` 
+hic_dataframe.columns = ["chr", "start_i", "start_j", "qval", "count"]
+```
 
 ### TSS bins and positions
 We need to have a `BED` file for TSS annotations. This file could be extracted from any gene annotation `GTF` files for any genome build. We have used GENCODE annotations which can be found [here](https://www.gencodegenes.org/). The TSS annotation `BED` file is given to [find_tss.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/find_tss.py) to compute the number of TSS's in each 5Kb bin. `find_tss.py` saves four outputs as numpy files: start position of each bin, number of TSS's in each bin, and the gene names (if existent) and their TSS positions in each bin. With 5Kb bins, the majority of them would have one TSS. However, there is a chance that a bin has 2 or 3 TSS's, in which case we save the first TSS position and all the genes (in the format `gene_name_1+gene_name_2`), because we want to keep track of all the genes appearing in each bin. 
