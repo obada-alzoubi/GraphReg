@@ -60,9 +60,87 @@ mkdir -p  data/K562/bam/
 cp  data/K562_CAGE_binsize_5000bp.bigWig data/K562/bam/
 rm data/K562_CAGE_binsize_5000bp.bigWig 
 ```
+Now, you can run `data_read.py`. Before you run the code, make sure to change the following parts in the code. 
+```
+  organism = 'human'
+  cell_line = 'K562'
+  res = '5kb'
+  genome='hg38'
+  data_path = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
+
+```
+```
+python GraphReg/utils/data_read.py 
+```
 
 ### 3D data (chromatin conformation: Hi-C/HiChIP/Micro-C/HiCAR)
+*Note: You need R for this step*
 The chromatin conformation `fastq` data from various 3D assays such as Hi-C, HiChIP, Micro-C, HiCAR could be aligned to any genome (using packages like [Juicer](https://github.com/aidenlab/juicer) or [HiC-Pro](https://github.com/nservant/HiC-Pro)) to get `.hic` files. **GraphReg** needs connecivity graphs for each chromosome. As these 3D data are very noisy, we need some statistical tools to get the significant interactions for the graphs, otherwise it would be very noisy. To this end, we use [HiCDCPlus](https://github.com/mervesa/HiCDCPlus) which gets the `.hic` files and returns the significance level (FDR) for each genomic interaction (of resolution 5Kb) based on a Negative Binomial model. We filter the interactions and keep the ones with `FDR <= alpha` to form the graphs and adjacency matrices. We have worked with three different values of `alpha = 0.1, 0.01, 0.001` and noticed that its ideal value depends on the 3D data. But, we recommend `alpha = 0.1` as a default and less stringent cutoff. 
+First, install `HiCDCPlus` pckage.  
+
+```
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("HiCDCPlus")
+```
+Download data and create directories
+
+```
+!wget -O data/4DNFIW6H9U3S.hic https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/ac58fc15-48c2-4eec-a689-23b677b4b6e7/4DNFIW6H9U3S.hic'
+mkdir -p data/IMR90/hic/HiC/
+```
+Then, use the following Rscript code to generate the significance level (FDR) . 
+```
+library(HiCDCPlus)
+cell_line  = 'IMR90'           # GM12878/K562/hESC/mESC
+organism   = 'human'           # human/mouse
+res        = '5kb'                  # 5kb/10kb
+binsize    = 5000
+genome     = 'hg38'                # hg19/hg38/mm10
+assay_type = 'HiC'        # HiC/HiChIP/MicroC/HiCAR
+qval       = 0.01   
+fdr        = '01'
+data_path  = 'GraphReg'
+hicfile_path    = 'data/4DNFIW6H9U3S.hic'
+outdir = 'data/IMR90/hic/HiC/'
+
+chrs = paste0('chr', seq(22))
+chr='chr21'
+for (chr in chrs){
+  # 0.1/0.01/0.001
+  cat('Chr ', chr, '\n')
+  out_hic_bed = paste0(data_path, '/data/', cell_line, '/hic/',
+                       assay_type,'/',cell_line,'_',assay_type,'_FDR_',fdr,'_',chr)
+  print(out_hic_bed)
+  construct_features(output_path=paste0(outdir, "/", "hg38_IMR90_5kb_GATC_", chr),
+                     gen="Hsapiens",gen_ver=genome,
+                     sig="GATC",
+                     bin_type="Bins-uniform",
+                     binsize=binsize,
+                     chrs=c(chr))
+  
+  #generate gi_list instance
+  gi_list<-generate_bintolen_gi_list(gen="Hsapiens",gen_ver=genome,
+    bintolen_path=paste0(outdir,"/hg38_IMR90_5kb_GATC_", chr, "_bintolen.txt.gz"))
+  
+  #add .hic counts
+  gi_list<-add_hic_counts(gi_list,hic_path = hicfile_path)
+  
+  #expand features for modeling
+  gi_list<-expand_1D_features(gi_list)
+  #run HiC-DC+ on 2 cores
+  set.seed(1010) #HiC-DC downsamples rows for modeling
+  gi_list<-HiCDCPlus_parallel(gi_list,ncore=24)
+  head(gi_list)
+  
+
+  gi_list_write(gi_list,fname=out_hic_bed,
+               significance_threshold=qval,rows='significant')
+
+}
+# ouput
+
 
 The outputs of HiCDCPlus is given to [hic_to_graph.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/hic_to_graph.py) to generate the adjacency matrices for each chromosome, which are saved as sparce matrices. 
 
