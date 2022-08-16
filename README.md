@@ -140,7 +140,53 @@ for (chr in chrs){
 
 }
 ```
-The outputs of HiCDCPlus is given to [hic_to_graph.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/hic_to_graph.py) to generate the adjacency matrices for each chromosome, which are saved as sparce matrices. 
+We also need to generate the bed files of ranges.
+```
+import numpy as np
+import pandas as pd
+import time
+import os
+import scipy.sparse
+
+
+##### write seqs #####
+'''
+T = 400
+TT = T + T//2
+organism = 'human'
+genome='hg38'
+data_path = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
+for i in range(1,22+1):
+    chr = 'chr'+str(i)
+    filename_seqs = data_path+'/data/csv/seqs_bed/'+organism+'/'+genome+'/5kb/sequences_'+chr+'.bed'
+    seq_dataframe = pd.DataFrame(data = [], columns = ["chr", "start", "end"])
+    chrom = i
+
+    if organism=='human' and genome=='hg19':
+       chr_len = [249235000, 243185000, 197960000, 191040000, 180905000, 171050000, 159125000, 146300000, 141150000, 135520000, 134945000,
+                       133840000, 115105000, 107285000, 102520000, 90290000, 81190000, 78015000, 59115000, 62965000, 48115000, 51240000]
+    elif organism=='human' and genome=='hg38':
+       chr_len = [248950000, 242185000, 198290000, 190205000, 181530000, 170800000, 159340000, 145130000, 138385000, 133790000, 135080000,
+                       133270000, 114355000, 107035000, 101985000, 90330000, 83250000, 80365000, 58610000, 64435000, 46700000, 50810000]
+    elif organism=='mouse':
+       chr_len = [195465000, 182105000, 160030000, 156500000, 151825000, 149730000, 145435000, 129395000, 124590000, 130685000, 122075000, 
+               120120000, 120415000, 124895000, 104035000, 98200000, 94980000, 90695000, 61425000]
+
+    nodes_list = []
+    for i in range(0, chr_len[chrom-1]+5000, 5000):
+        nodes_list.append(i)
+    nodes_list = np.array(nodes_list)
+    left_padding = np.zeros(TT).astype(int)
+    right_padding = np.zeros(TT).astype(int)
+    nodes_list = np.append(left_padding, nodes_list)
+    nodes_list = np.append(nodes_list, right_padding)
+    seq_dataframe['start'] = nodes_list
+    seq_dataframe['end'] = nodes_list + 5000
+    seq_dataframe['chr'] = chr
+    print(seq_dataframe)
+    seq_dataframe.to_csv(filename_seqs, index = False, header = False, sep = '\t')
+```
+The outputs of HiCDCPlus and ranges are given to [hic_to_graph.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/hic_to_graph.py) to generate the adjacency matrices for each chromosome, which are saved as sparce matrices. 
 You need again to edit `hic_to_graph.y`
 ```
 
@@ -164,9 +210,52 @@ hic_dataframe.columns = ["chr", "start_i", "start_j", "qval", "count"]
 ### TSS bins and positions
 We need to have a `BED` file for TSS annotations. This file could be extracted from any gene annotation `GTF` files for any genome build. We have used GENCODE annotations which can be found [here](https://www.gencodegenes.org/). The TSS annotation `BED` file is given to [find_tss.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/find_tss.py) to compute the number of TSS's in each 5Kb bin. `find_tss.py` saves four outputs as numpy files: start position of each bin, number of TSS's in each bin, and the gene names (if existent) and their TSS positions in each bin. With 5Kb bins, the majority of them would have one TSS. However, there is a chance that a bin has 2 or 3 TSS's, in which case we save the first TSS position and all the genes (in the format `gene_name_1+gene_name_2`), because we want to keep track of all the genes appearing in each bin. 
 
+```
+wget -O data/gencode.gtf.gz https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/gencode.v41.annotation.gtf.gz
+gunzip data/gencode.gtf.gz
+awk '{ if ($0 ~ "transcript_id") print $0; else print $0" transcript_id \"\";"; }' data/gencode.gtf | gtf2bed -> data/gencode.bed  
+mkdir -p data/tss/human/hg38/
+mv  data/gencode.bed  data/tss/human/hg38/gencode.v38.annotation.gtf.tss.bed
+```
+Then, we can run `find_tss.py` after editing the following line:
+```
+resolution = '5kb'     # 5kb/10kb
+organism = 'human'     # human/mouse
+genome    = 'hg38'        # hg38/hg19/mm10
+thr = 0                # only keep the tss bins whose distance from bin borders are more than "thr" 
+                       # (only applicable when want to consider the bins with 1 tss, otherwise thr = 0)
+data_path = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
+```
+
 ### Writing all data (1D, 3D, TSS) to TFRecords 
 **GraphReg** has been implemented in TensorFlow. [TFRecord](https://www.tensorflow.org/tutorials/load_data/tfrecord) is an efficient format to store and read data in TensorFlow. We use [data_write.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/data_write.py) to read (1) epigenomic coverage files (saved in `h5` format), (2) sparse adjacency matrices (saved in `npz` format), and (3) TSS files (saved in `np` format) and save them sequentially in TFRecords in each chromosome. We start from beginning of each chromosome and write the epigenomic and CAGE coverages, adjacency matrices, and TSS annotations for the regions of 6Mb. Then we sweep the entire chromosome by steps of 2Mb. This way, there is no overlap for the middle 2Mb regions where we predict gene expression values. For each batch of 6Mb, the dimensions of data would be: `60,000` for each epigenomic track, `1200` for CAGE, and `1200 x 1200` for adjacency matrices. The predicted CAGE values in the middle `400` bins would appear in the loss function so that all the genes could see their distal enhancers up to 2Mb up- and downstream of their TSS. 
+Again, we need to edit the following lines in `data_write.py`. You need also to determine the model `model=epi or model=seq`.
+```
+  organism = 'human'          # human/mouse
+  res = '5kb'                 # 5kb/10kb
+  cell_line = 'K562'          # K562/GM12878/hESC/mESC
+  genome='hg19'               # hg19/hg38/mm10
+  model = 'epi'               # seq/epi
+  assay_type = 'HiC'        # HiC/HiChIP/MicroC/HiCAR
+  qval = 0.01                    # 0.1/0.01/0.001
+data_path = 'parent_of_data' # the parent of data directory. For example, if data is located in /home/codes/GraphReg/data, then data_path='/home/codes/GraphReg'
+```
+You need also to edit the following lines based on input data:
+```
+seqs_cov_files = [data_path+'/data/'+cell_line+'/seqs_cov/CAGE_cov_RPGC_'+chr_temp+'.h5',
+                  #data_path+'/data/'+cell_line+'/seqs_cov/H3K4me3_cov_RPGC_'+chr_temp+'.h5',
+                  #data_path+'/data/'+cell_line+'/seqs_cov/H3K27ac_cov_RPGC_'+chr_temp+'.h5',
+                  #data_path+'/data/'+cell_line+'/seqs_cov/H3K4me1_cov_FC_'+chr_temp+'.h5',
+                  #data_path+'/data/'+cell_line+'/seqs_cov/H3K27me3_cov_FC_'+chr_temp+'.h5',
+                  #data_path+'/data/'+cell_line+'/seqs_cov/CTCF_cov_FC_'+chr_temp+'.h5',
+                  data_path+'/data/'+cell_line+'/seqs_cov/DNase_cov_RPGC_'+chr_temp+'.h5'
+                  ]
+```
 
+```
+mkdir -p data/tfrecords
+python data_write.py
+```
 The TFRecord files are slightly different for **Epi-GraphReg** and **Seq-GraphReg** models: (1) TFRecords for **Seq-GraphReg** also contain one-hot-coded DNA sequences of the size `6,000,000 x 4`, as the DNA sequence is an input for these models, (2) The epigenomic signals for **Epi-GraphReg** undergo an extra log-normalization, via function `log2(x+1)`, to reduce their dynamic ranges, as they are inputs in  **Epi-GraphReg** models.
 
 Now that we have generated TFRecord files, we are ready to train the models.
