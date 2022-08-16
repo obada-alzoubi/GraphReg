@@ -251,7 +251,7 @@ seqs_cov_files = [data_path+'/data/'+cell_line+'/seqs_cov/CAGE_cov_RPGC_'+chr_te
                   data_path+'/data/'+cell_line+'/seqs_cov/DNase_cov_RPGC_'+chr_temp+'.h5'
                   ]
 ```
-
+The last step in data preperation is writing data as tfrecorde. Please not this process will take long time (~ 40 min per chromosome).
 ```
 mkdir -p data/tfrecords
 python data_write.py
