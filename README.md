@@ -1,4 +1,5 @@
-# GraphReg
+# GraphReg - Expnaded 
+This repo is an extention for GraphReg. It has detialed explnations and improvment over the orignal repo.I added deom exmaples and fixing several bugs and hard coded values. It is still an ongoing process. 
 
 <img
   src="assets/distal_enhancers.png"
