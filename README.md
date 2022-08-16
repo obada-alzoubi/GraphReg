@@ -22,8 +22,9 @@ Probably, this will be the most time consuming approach. I chose datasets for el
 
 ### Reference Genome 
 We need the reference genome. In this example, I'm using hg38. If you want to use hg19, please downlaod the hg19 reference genome from [Gencode](https://www.gencodegenes.org/human/)
+
 ```
-mkdir -p data\genome` 
+mkdir -p data\genome 
 !wget -O data/genome/GRCh38.primary_assembly.genome.fa.gz https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh38.primary_assembly.genome.fa.gz
 !gunzip data/genome/GRCh38.primary_assembly.genome.fa.gz
 
@@ -38,7 +39,27 @@ We can use two different approaches to generate `bigwig` files from alignment `B
 - [`bamCoverage`](https://deeptools.readthedocs.io/en/develop/content/tools/bamCoverage.html) from [deepTools](https://deeptools.readthedocs.io/en/develop/index.html). This is more suitable for cross-cell-type analyses, as they offer some normalization methods for `bigwig` files. In particular, we use 1x normalization or reads per genome coverage (RPGC), which normalizes the coverage in each bin by sequencing depth. We run `bamCoverage` with bin size 100 for epigenomic tracks and 5000 for CAGE-seq.
 
 After generating the `bigwig` files, we use [data_read.py](https://github.com/karbalayghareh/GraphReg/blob/master/utils/data_read.py) to read the `bigwig` files and save the coverage signals in `hdf5` format. We use `pool_width = 100` (to get the coverage in 100bp bins) for epigenomic tracks and `pool_width = 5000` (to get the coverage in 5Kb bins) for CAGE. The reason of using 5Kb bins for CAGE is that we use 5Kb resolution of 3D assays and want to have corresponding bins. If we use `bam_cov.py` to generate `bigwig` files, we set `sum_stat = 'sum'` to sum all the base-pair coverage in each bin; otherwise, if we use `bamCoverage` to generate `bigwig` files, we set `sum_stat = 'max'` as the coverage per bin has already been computed per bin. 
+We will use K562 cell line to get CAGE data: https://www.encodeproject.org/experiments/ENCSR000CJN/. Then, we need to index the file using [samtools](http://www.htslib.org/). Then, we will be able to run `bam_cov.py` or `bamCoverage`. 
+I'm going to use `bamCoverage` in this case. Thus, we need to install deeptools. It is very important to pay attention to the bin size `5000 bp`
+```
+conda install -c bioconda samtools # install samtools
+conda install -c bioconda deeptools # install deepTools
 
+```
+Now, we can run indexing and coverage. 
+```
+wget -O data/ENCFF366MWI.bam https://encode-public.s3.amazonaws.com/2016/08/04/1c730238-8266-4ace-ba49-47fcd56838a8/ENCFF366MWI.bam
+samtools index data/ENCFF366MWI.bam
+bamCoverage -b data/ENCFF366MWI.bam \
+-bs 5000 \ # Bin size 
+--normalizeUsing RPGC \
+-o data/K562_CAGE_binsize_5000bp.bigWig \
+--effectiveGenomeSize 2913022398 # hg38
+# Data should be orginized in data\cell\bam\nam.bigWig 
+mkdir -p  data/K562/bam/
+cp  data/K562_CAGE_binsize_5000bp.bigWig data/K562/bam/
+rm data/K562_CAGE_binsize_5000bp.bigWig 
+```
 
 ### 3D data (chromatin conformation: Hi-C/HiChIP/Micro-C/HiCAR)
 The chromatin conformation `fastq` data from various 3D assays such as Hi-C, HiChIP, Micro-C, HiCAR could be aligned to any genome (using packages like [Juicer](https://github.com/aidenlab/juicer) or [HiC-Pro](https://github.com/nservant/HiC-Pro)) to get `.hic` files. **GraphReg** needs connecivity graphs for each chromosome. As these 3D data are very noisy, we need some statistical tools to get the significant interactions for the graphs, otherwise it would be very noisy. To this end, we use [HiCDCPlus](https://github.com/mervesa/HiCDCPlus) which gets the `.hic` files and returns the significance level (FDR) for each genomic interaction (of resolution 5Kb) based on a Negative Binomial model. We filter the interactions and keep the ones with `FDR <= alpha` to form the graphs and adjacency matrices. We have worked with three different values of `alpha = 0.1, 0.01, 0.001` and noticed that its ideal value depends on the 3D data. But, we recommend `alpha = 0.1` as a default and less stringent cutoff. 
