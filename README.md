@@ -7,7 +7,7 @@ Before moving on with running. You need to pay attention to the following paramt
 * `model`: sequence or epigenomic.
 * `cell lines`: cell line(s) for extracting epi features. 
 Each script should be examined for each of the previous parameters. There are many hard coded paramters in scripts!
-### Compuational Time of data preporcessing 
+### Compuational Time of data preprocessing 
 Some scripts are memory greedy. You may need a computer with 72 GB at minimum.
 
 <img
