@@ -101,53 +101,12 @@ mkdir -p data/IMR90/hic/HiC/
 ```
 Then, use the following Rscript code to generate the significance level (FDR) . 
 ```
-library(HiCDCPlus)
-cell_line  = 'IMR90'           # GM12878/K562/hESC/mESC/IMR90
-organism   = 'human'           # human/mouse
-res        = '5kb'              # 5kb/10kb
-binsize    = 5000
-genome     = 'hg38'                # hg19/hg38/mm10
-assay_type = 'HiC'        # HiC/HiChIP/MicroC/HiCAR
-qval       = 0.01   
-fdr        = '01'
-data_path  = 'GraphReg'
-hicfile_path    = 'data/4DNFIW6H9U3S.hic'
-outdir = 'data/IMR90/hic/HiC/'
-
-chrs = paste0('chr', seq(22))
-chr='chr21'
-for (chr in chrs){
-  # 0.1/0.01/0.001
-  cat('Chr ', chr, '\n')
-  out_hic_bed = paste0(data_path, '/data/', cell_line, '/hic/',
-                       assay_type,'/',cell_line,'_',assay_type,'_FDR_',fdr,'_',chr)
-  print(out_hic_bed)
-  construct_features(output_path=paste0(outdir, "/", "hg38_IMR90_5kb_GATC_", chr),
-                     gen="Hsapiens",gen_ver=genome,
-                     sig="GATC",
-                     bin_type="Bins-uniform",
-                     binsize=binsize,
-                     chrs=c(chr))
-  
-  #generate gi_list instance
-  gi_list<-generate_bintolen_gi_list(gen="Hsapiens",gen_ver=genome,
-    bintolen_path=paste0(outdir,"/hg38_IMR90_5kb_GATC_", chr, "_bintolen.txt.gz"))
-  
-  #add .hic counts
-  gi_list<-add_hic_counts(gi_list,hic_path = hicfile_path)
-  
-  #expand features for modeling
-  gi_list<-expand_1D_features(gi_list)
-  #run HiC-DC+ on 2 cores
-  set.seed(1010) #HiC-DC downsamples rows for modeling
-  gi_list<-HiCDCPlus_parallel(gi_list,ncore=24)
-  head(gi_list)
-  
-
-  gi_list_write(gi_list,fname=out_hic_bed,
-               significance_threshold=qval,rows='significant')
-
-}
+Rscript utils/hicdc_run.R cellname binSize qval root_data_loc hic_file_loc
+# cellname: Cell Name: e.g. GM12878
+# binSize: 5000 or 10000 
+# qval: 0.1, 0.01 or 0.001
+# root_data_loc: /home/codes/GraphReg/data
+# hic_file_loc: file location of hic data.
 ```
 We also need to generate the bed files of ranges.
 ```
